@@ -2,16 +2,10 @@
     "title": "devices",
     "required": ["lastUpdated"],
     "properties": {
-      "uuid": {
+      "name": {
         "bsonType": "string"
-      },
-      "lastUpdated": {
-        "bsonType": "date"
-      },
-       "name": {
-          "bsonType": "string"
-        },    
-       "powered": {
+      },    
+      "powered": {
         "bsonType": "bool"
       },
       "poweredTimestamp": {
@@ -25,9 +19,7 @@
       },
       "color": {
         "bsonType": "string",
-        "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$",
-        "minLength": 4,
-        "maxLength": 7
+        "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
       },
       "colorTimestamp":{
         "bsonType": "date"
