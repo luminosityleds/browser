@@ -1,0 +1,37 @@
+{
+    "title": "devices",
+    "required": ["lastUpdated"],
+    "properties": {
+      "name": {
+        "bsonType": "string"
+      },    
+      "powered": {
+        "bsonType": "bool"
+      },
+      "poweredTimestamp": {
+        "bsonType": "date"
+      },
+      "connected": {
+        "bsonType": "bool"
+      },
+      "connectedTimestamp": {
+        "bsonType": "date"
+      },
+      "color": {
+        "bsonType": "string",
+        "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+      },
+      "colorTimestamp":{
+        "bsonType": "date"
+      },
+      "brightness": {
+        "bsonType": "int",
+        "minimum": 0,
+        "maximum": 100,
+        "exclusiveMaximum": false
+      },
+      "brightnessTimestamp":{
+        "bsonType": "date"
+      }
+    }
+}
