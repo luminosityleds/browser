@@ -1,0 +1,32 @@
+{
+    "title": "accounts",
+    "required": ["lastUpdated"],
+    "properties": {
+        "creationDate": {
+          "bsonType": "date"
+        },
+        "deletionDate": {
+          "bsonType": ["date", "null"]
+        },
+        "lastUpdated": {
+          "bsonType": "date"
+        },
+        "email": {
+          "bsonType": "string",
+          "pattern": "^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*$"
+        },
+        "name": {
+          "bsonType": "string"
+        },
+       "notifications": {
+          "bsonType": [ "array" ]
+        },
+        "devicesLinked": {
+          "bsonType": [ "array" ],
+          "uniqueItems": true,
+          "items": {
+              "bsonType": "objectId"
+          }
+        }
+    }
+}
