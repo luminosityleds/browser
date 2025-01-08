@@ -1,9 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 export default function Home() {
@@ -14,6 +13,7 @@ export default function Home() {
     name: "",
   });
 
+
   const handleOnClick = (route: string) => {
     router.push(`/${route}`);
   };
@@ -22,6 +22,7 @@ export default function Home() {
     try {
       const response = await axios.post("/api/users/signup", user);
       router.push("/login"); // Redirect to login on successful signup
+      
     } catch (error: any) {
       console.log("Signup failed", error.message);
     }
