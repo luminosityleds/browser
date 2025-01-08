@@ -1,13 +1,30 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import React, { useState } from "react";
+import axios from "axios";
 
 export default function Home() {
   const router = useRouter();
+  const [user, setUser] = useState({
+    email: "",
+    password: "",
+    name: "",
+  });
 
-  const handleOnClick = (route: String) => {
+  const handleOnClick = (route: string) => {
     router.push(`/${route}`);
+  };
+
+  const onSignup = async () => {
+    try {
+      const response = await axios.post("/api/users/signup", user);
+      router.push("/login"); // Redirect to login on successful signup
+    } catch (error: any) {
+      console.log("Signup failed", error.message);
+    }
   };
 
   return (
@@ -33,21 +50,71 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
+        {/* Signup Form */}
+        <div className="w-full max-w-sm p-4 border rounded-lg shadow-md">
+          <h2 className="text-2xl font-semibold mb-4">Sign Up</h2>
+          <div className="mb-4">
+            <label htmlFor="name" className="block mb-1 text-sm font-medium">
+              Name
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={user.name}
+              onChange={(e) =>
+                setUser({ ...user, name: e.target.value })
+              }
+              placeholder="Enter your name"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none"
+            />
+          </div>
+          <div className="mb-4">
+            <label htmlFor="email" className="block mb-1 text-sm font-medium">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={user.email}
+              onChange={(e) => setUser({ ...user, email: e.target.value })}
+              placeholder="Enter your email"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none"
+            />
+          </div>
+          <div className="mb-4">
+            <label
+              htmlFor="password"
+              className="block mb-1 text-sm font-medium"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={user.password}
+              onChange={(e) =>
+                setUser({ ...user, password: e.target.value })
+              }
+              placeholder="Enter your password"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none"
+            />
+          </div>
           <button
-            type="button"
-            onClick={() => handleOnClick("login")}
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
+            onClick={onSignup}
+            className="w-full bg-foreground text-background py-2 rounded-md hover:bg-[#383838] transition"
           >
-            Login
+            Sign Up
           </button>
-          <button
-            type="button"
-            onClick={() => handleOnClick("register")}
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-          >
-            Register
-          </button>
+          <div className="mt-4 text-sm text-center">
+            Already have an account?{" "}
+            <button
+              type="button"
+              onClick={() => handleOnClick("login")}
+              className="text-blue-500 underline"
+            >
+              Visit login page
+            </button>
+          </div>
         </div>
       </main>
       <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
