@@ -14,8 +14,7 @@ export async function POST(request: NextRequest){
 // Defines an asynchronous POST request handler.
     try {
         const reqBody = await request.json()
-        const {name, email, password} = reqBody
-// Parses the request body to extract name, email, and password.
+        const {name, email, password} = reqBody // Parses the request body to extract name, email, and password.
 
 //Checks if a user with the provided email already exists. 
         const user = await User.findOne({email})

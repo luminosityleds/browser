@@ -4,6 +4,7 @@ import { DeviceInterface } from "./deviceSchema"
 export interface AccountInterface extends Document {
     name : string;
     email : string;
+    password : string;
     creationDate : Date;
     deletionDate : Date | null;
     lastUpdated : Date;
@@ -20,6 +21,10 @@ const AccountSchema : Schema = new Schema<AccountInterface>({
         type: String,
         unique: true,
         required: true
+    },
+    password: { 
+        type: String, 
+        required: true 
     },
     creationDate: {
         type: Date,
