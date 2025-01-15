@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken"
 
+import dotenv from "dotenv";
+dotenv.config();
+
+
 connect()
 // Calls the connect function to establish a connection to the database.
 

@@ -10,6 +10,10 @@ export interface AccountInterface extends Document {
     lastUpdated : Date;
     notifications : string[];
     devicesLinked : mongoose.Types.ObjectId[] | DeviceInterface[];
+
+    usVerified?: boolean;
+    verifyToken?: string;
+    verifyTokenExpiry?: Date;
 }
 
 const AccountSchema : Schema = new Schema<AccountInterface>({
@@ -46,7 +50,11 @@ const AccountSchema : Schema = new Schema<AccountInterface>({
     deletionDate: {
         type: Date, // Optional date to track when the account is marked for deletion
         default: null // Default value is null, meaning the account is not deleted
-    }
+    },
+
+    usVerified: { type: Boolean, default: false },
+    verifyToken: { type: String },
+    verifyTokenExpiry: { type: Date },
 })
 
 const Account = mongoose.model<AccountInterface>("Account", AccountSchema);
