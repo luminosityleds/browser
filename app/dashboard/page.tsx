@@ -61,7 +61,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-8 font-[family-name:var(--font-inter)] bg-gray-100">
+    <div className="flex flex-col items-center justify-center min-h-screen p-8 font-[family-name:var(--font-inter)] bg-gray-800">
       <main className="text-center">
         {/* Logo */}
         <Image src="/Logo.svg" alt="LL logo" width={200} height={38} priority />
