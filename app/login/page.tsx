@@ -75,7 +75,7 @@ export default function LoginPage() {
                 setUser({ ...user, email: e.target.value })
               }
               placeholder="Enter your email"
-              className="w-full px-3 py-2 border rounded-md focus:outline-none"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none text-black"
             />
           </div>
           <div className="mb-4">
@@ -93,7 +93,7 @@ export default function LoginPage() {
                 setUser({ ...user, password: e.target.value })
               }
               placeholder="Enter your password"
-              className="w-full px-3 py-2 border rounded-md focus:outline-none"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none text-black"
             />
           </div>
           <button
