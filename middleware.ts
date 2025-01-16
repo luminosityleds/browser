@@ -1,37 +1,35 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname
+  const path = request.nextUrl.pathname;
 
   // Define paths that are considered public (accessible without a token)
-  const isPublicPath = path === '/login' || path === '/signup' || path === '/verifyemail'
+  const isPublicPath = ['/login', '/signup', '/verifyemail', '/logout'].includes(path);
 
   // Get the token from the cookies
-  const token = request.cookies.get('token')?.value || ''
+  const token = request.cookies.get('token')?.value || '';
 
   // Redirect logic based on the path and token presence
-  if(isPublicPath && token) {
-
- // If trying to access a public path with a token, redirect to the home page
-    return NextResponse.redirect(new URL('/', request.nextUrl))
+  if (isPublicPath && token) {
+    // If trying to access a public path with a token, redirect to the home page
+    return NextResponse.redirect(new URL('/', request.nextUrl));
   }
 
-// If trying to access a protected path without a token, redirect to the login page
+  // If trying to access a protected path without a token, redirect to the login page
   if (!isPublicPath && !token) {
-    return NextResponse.redirect(new URL('/login', request.nextUrl))
+    return NextResponse.redirect(new URL('/login', request.nextUrl));
   }
-    
 }
 
-// It specifies the paths for which this middleware should be executed. 
-// In this case, it's applied to '/', '/profile', '/login', and '/signup'.
+// It specifies the paths for which this middleware should be executed.
 export const config = {
   matcher: [
     '/',
     '/profile',
     '/login',
     '/signup',
-    '/verifyemail'
-  ]
-}
+    '/verifyemail',
+    '/deleteAccount', // Add protected route here
+  ],
+};
