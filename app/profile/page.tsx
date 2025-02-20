@@ -1,4 +1,4 @@
-import { useRouter } from 'next/router'; // Correct import for `useRouter`
+import { useRouter } from 'next/navigation'; // Correct import for `useRouter`
 import { useState } from 'react'; // Import `useState` from React
 import axios from 'axios'; // Import Axios for making API requests
 
