@@ -18,6 +18,9 @@
         "name": {
           "bsonType": "string"
         },
+        "password": {
+          "bsonType": "string"
+        },
        "notifications": {
           "bsonType": [ "array" ]
         },
