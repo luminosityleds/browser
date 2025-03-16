@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
         // Checks if a user with the provided email already exists. 
         const user = await User.findOne({ email });
 
-        // If yes, returns a 400 response.
+        // If yes, returns a 409 response.
         if (user) {
-            return NextResponse.json({ error: "User already exists" }, { status: 400 });
+            return NextResponse.json({ error: "User already exists" }, { status: 409 });
         }
 
         // Hash password using bcryptjs.
