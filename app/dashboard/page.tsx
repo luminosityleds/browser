@@ -39,6 +39,14 @@ export default function Dashboard() {
     }
   };
 
+  const registerDevice = async () => {
+    try {
+      router.push("/device");
+    } catch (error: any) {
+      console.log("Error navigating to register device page:", error.message);
+    }
+  };
+
   const deleteAccount = async () => {
     const confirmDelete = confirm(
       "Are you sure you want to delete your account? This action cannot be undone."
@@ -91,6 +99,14 @@ export default function Dashboard() {
           className="mt-4 px-6 py-2 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 transition"
         >
           Delete Account
+        </button>
+
+        {/* Register Device Button */}
+        <button
+          onClick={registerDevice}
+          className="mt-4 px-6 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 transition"
+        >
+          Register New Device
         </button>
       </main>
     </div>
