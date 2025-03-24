@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import axios from "axios";
+import { getTextColorClass } from "../utils/getTextColorClass";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -125,7 +126,7 @@ export default function Dashboard() {
               <span className="text-xl">⚠️</span>
             </div>
         ) : (
-          <div className="mt-6">
+          <div className="text-black mt-6">
             <label className="block text-white mb-2">Select Device</label>
             <select
               value={selectedDeviceId}
@@ -141,7 +142,7 @@ export default function Dashboard() {
             </select>
 
             {selectedDevice && (
-              <div className="mt-6 bg-white rounded p-4 text-left">
+              <div className="mt-6 bg-blue-100 p-4 text-left">
                 <label className="block mb-2">Name</label>
                 <input
                   type="text"
@@ -149,12 +150,11 @@ export default function Dashboard() {
                   onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
                   className="w-full p-2 border rounded mb-4"
                 />
-
                 <label className="block mb-2">Color</label>
                 <select
                   value={editValues.color}
                   onChange={(e) => setEditValues({ ...editValues, color: e.target.value })}
-                  className="w-full p-2 border rounded mb-4"
+                  className={`w-full p-2 border rounded mb-4 ${getTextColorClass(editValues.color)}`}
                 >
                   <option value="Red">Red</option>
                   <option value="Green">Green</option>

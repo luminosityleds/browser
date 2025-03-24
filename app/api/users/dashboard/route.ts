@@ -1,6 +1,5 @@
 import { connect } from "@/dbConfig";
 import Device from "@/server/mongodb/models/deviceSchema";
-import User from "@/server/mongodb/models/accountSchema";
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 
