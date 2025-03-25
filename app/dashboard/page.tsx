@@ -13,12 +13,14 @@ export default function Dashboard() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [selectedDevice, setSelectedDevice] = useState<any | null>(null);
   const [editValues, setEditValues] = useState({ name: "", color: "Red", brightness: 100, powered: false });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const response = await axios.get("/api/users/me");
         const user = response.data.data;
+    
         if (user && user._id) {
           setUserId(user._id);
           const deviceRes = await axios.get("/api/users/dashboard");
@@ -29,8 +31,10 @@ export default function Dashboard() {
       } catch (error: any) {
         console.error("Error fetching data:", error.message);
         router.push("/login");
+      } finally {
+        setLoading(false);
       }
-    };
+    };    
 
     fetchUserData();
   }, [router]);
@@ -120,12 +124,16 @@ export default function Dashboard() {
         <h1 className="text-4xl font-bold mt-6">Luminosity LEDs</h1>
         <p className="italic">Illuminate your creativity and expression</p>
 
-        {devices.length === 0 ? (
-            <div className="mt-6 text-white flex items-center gap-2 bg-stone-950 p-4 rounded shadow">
-              <p className="font-medium">No devices found. Please register a device.</p>
-              <span className="text-xl">⚠️</span>
+        {loading ? (
+            <div className="flex justify-center mt-10">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
-        ) : (
+          ) : devices.length === 0 ? (
+          <div className="mt-6 text-white flex items-center gap-2 bg-stone-950 p-4 rounded shadow">
+            <p className="font-medium">No devices found. Please register a device.</p>
+            <span className="text-xl">⚠️</span>
+          </div>
+            ) : (
           <div className="text-black mt-6">
             <label className="block text-white mb-2">Select Device</label>
             <select
