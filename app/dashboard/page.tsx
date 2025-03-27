@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import axios from "axios";
 import { getTextColorClass } from "../utils/getTextColorClass";
+import { LogOut } from "lucide-react";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -12,7 +13,12 @@ export default function Dashboard() {
   const [devices, setDevices] = useState<any[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [selectedDevice, setSelectedDevice] = useState<any | null>(null);
-  const [editValues, setEditValues] = useState({ name: "", color: "Red", brightness: 100, powered: false });
+  const [editValues, setEditValues] = useState({
+    name: "",
+    color: "Red",
+    brightness: 100,
+    powered: false,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,7 +26,7 @@ export default function Dashboard() {
       try {
         const response = await axios.get("/api/users/me");
         const user = response.data.data;
-    
+
         if (user && user._id) {
           setUserId(user._id);
           const deviceRes = await axios.get("/api/users/dashboard");
@@ -34,7 +40,7 @@ export default function Dashboard() {
       } finally {
         setLoading(false);
       }
-    };    
+    };
 
     fetchUserData();
   }, [router]);
@@ -70,17 +76,16 @@ export default function Dashboard() {
   const handleDeviceDelete = async () => {
     const confirmDelete = confirm("Are you sure you want to delete this device?");
     if (!confirmDelete) return;
-  
+
     try {
       await axios.delete("/api/users/dashboard", {
         data: { deviceId: selectedDeviceId },
       });
       alert("Device deleted successfully");
-  
-      // Refresh devices list
+
       const updatedDevices = await axios.get("/api/users/dashboard");
       setDevices(updatedDevices.data.devices);
-      setSelectedDeviceId(""); // clear selection
+      setSelectedDeviceId("");
     } catch (err: any) {
       console.error("Failed to delete device:", err);
       alert("Failed to delete device");
@@ -118,22 +123,32 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-8 bg-gray-800">
+    <div className="flex flex-col items-center justify-center min-h-screen p-8 bg-gray-800 relative">
+      {/* 🔒 Top Right Logout Button */}
+      <button
+        onClick={logout}
+        title="Logout"
+        className="absolute top-4 right-4 text-white hover:text-red-500 transition"
+      >
+        <LogOut size={28} />
+        <span>Logout</span>
+      </button>
+
       <main className="text-center w-full max-w-2xl">
         <Image src="/Logo.svg" alt="LL logo" width={200} height={38} priority />
         <h1 className="text-4xl font-bold mt-6">Luminosity LEDs</h1>
         <p className="italic">Illuminate your creativity and expression</p>
 
         {loading ? (
-            <div className="flex justify-center mt-10">
-              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          ) : devices.length === 0 ? (
+          <div className="flex justify-center mt-10">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : devices.length === 0 ? (
           <div className="mt-6 text-white flex items-center gap-2 bg-stone-950 p-4 rounded shadow">
             <p className="font-medium">No devices found. Please register a device.</p>
             <span className="text-xl">⚠️</span>
           </div>
-            ) : (
+        ) : (
           <div className="text-black mt-6">
             <label className="block text-white mb-2">Select Device</label>
             <select
@@ -180,7 +195,9 @@ export default function Dashboard() {
                   min="0"
                   max="100"
                   value={editValues.brightness}
-                  onChange={(e) => setEditValues({ ...editValues, brightness: parseInt(e.target.value) })}
+                  onChange={(e) =>
+                    setEditValues({ ...editValues, brightness: parseInt(e.target.value) })
+                  }
                   className="w-full mb-4"
                 />
 
@@ -198,24 +215,17 @@ export default function Dashboard() {
                   Update Device
                 </button>
                 <button
-                onClick={handleDeviceDelete}
-                className="mt-2 w-full bg-red-600 text-white py-2 rounded hover:bg-red-700"
+                  onClick={handleDeviceDelete}
+                  className="mt-2 w-full bg-red-600 text-white py-2 rounded hover:bg-red-700"
                 >
                   Delete Device
                 </button>
-
               </div>
             )}
           </div>
         )}
 
         <div className="mt-10 space-y-2">
-          <button
-            onClick={logout}
-            className="w-full py-2 bg-yellow-500 text-white font-semibold rounded hover:bg-yellow-600"
-          >
-            Logout
-          </button>
           <button
             onClick={deleteAccount}
             className="w-full py-2 bg-red-600 text-white font-semibold rounded hover:bg-red-700"

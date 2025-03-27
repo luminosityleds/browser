@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import axios from "axios";
 import Image from "next/image";
 import { getTextColorClass } from "../utils/getTextColorClass";
+import { MdArrowBack } from "react-icons/md";
 
 export default function DevicePage() {
   const router = useRouter();
@@ -44,8 +45,17 @@ export default function DevicePage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-8 bg-gray-800">
-    <main className="text-center w-full max-w-2xl">
-      <Image src="/Logo.svg" alt="LL logo" width={200} height={38} priority />
+      <main className="text-center w-full max-w-2xl">
+          {/* Back to Dashboard Button */}
+          <button
+          onClick={() => router.push("/dashboard")}
+          className="absolute top-4 right-4 text-white hover:text-blue-500 transition flex items-center"
+          title="Back to Dashboard"
+          >
+          <MdArrowBack size={28} className="mr-2" /> {/* Use the same symbol */}
+          Back to Dashboard
+        </button>
+        <Image src="/Logo.svg" alt="LL logo" width={200} height={38} priority />
         <h1 className="text-4xl font-bold mt-6">Luminosity LEDs</h1>
         <p className="italic">Illuminate your creativity and expression</p>
         <div className="flex flex-col items-center justify-center max-h-lg bg-blue-100 p-6 max-w-lg mx-auto mt-10 rounded-xl shadow-lg">
@@ -100,16 +110,9 @@ export default function DevicePage() {
             >
               {loading ? "Registering..." : "Register Device"}
             </button>
-
-            {/* Back to Dashboard */}
-            <p className="text-center text-sm text-gray-600 mt-4">
-              <button className="text-blue-500 underline" onClick={() => router.push("/dashboard")}>
-                Back to Dashboard
-              </button>
-            </p>
           </div>
-          </div>
+        </div>
       </main>
-      </div>
+    </div>
   );
 }
