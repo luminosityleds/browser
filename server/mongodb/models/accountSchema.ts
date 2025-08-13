@@ -9,8 +9,7 @@ export interface AccountInterface extends Document {
     deletionDate : Date | null;
     lastUpdated : Date;
     notifications : string[];
-    devicesLinked : mongoose.Types.ObjectId[] | DeviceInterface[];
-
+    devicesLinked : mongoose.Types.ObjectId[];
     usVerified?: boolean;
     verifyToken?: string;
     verifyTokenExpiry?: Date;
