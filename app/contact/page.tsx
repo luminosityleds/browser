@@ -1,5 +1,6 @@
 import Image from "next/image";
 import BackButton from "../components/BackButton";
+import { FaGithub } from "react-icons/fa";
 
 export default function ContactPage() {
   return (
@@ -13,9 +14,11 @@ export default function ContactPage() {
           href="https://github.com/luminosityleds"
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-6 flex justify-center"
+          className="mt-6 flex justify-center hover:text-gray-400 hover:scale-110 transition-transform duration-300"
+          style={{ fontSize: "64px" }}
+          
         >
-          <Image src="/github.svg" alt="GitHub logo" width={70} height={70} />
+          <FaGithub />
         </a>
       </main>
     </div>
