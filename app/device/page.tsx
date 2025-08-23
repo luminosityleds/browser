@@ -1,11 +1,59 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import axios from "axios";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+
 import Image from "next/image";
-import { getTextColorClass } from "../utils/getTextColorClass";
 import { MdArrowBack } from "react-icons/md";
+import axios from "axios";
+import { useRouter } from "next/navigation";
+
+// Utility functions
+function rgbToHex(r: number, g: number, b: number) {
+  return (
+    "#" +
+    [r, g, b]
+      .map((x) => x.toString(16).padStart(2, "0"))
+      .join("")
+  );
+}
+
+function hexToRgb(hex: string) {
+  const match = hex.replace("#", "").match(/^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (!match) return null;
+  return { r: parseInt(match[1], 16), g: parseInt(match[2], 16), b: parseInt(match[3], 16) };
+}
+
+// Color map
+const colorMap: Record<string, string> = {
+  Red: "#ff0000",
+  Green: "#00ff00",
+  Blue: "#0000ff",
+  Yellow: "#ffff00",
+  Purple: "#800080",
+  Orange: "#ffa500",
+  White: "#ffffff",
+  Black: "#000000",
+};
+
+// Closest color helper
+function closestColorName(hex: string, colorMap: Record<string, string>): string {
+  const target = hexToRgb(hex);
+  if (!target) return "Red";
+  let closest = "Red";
+  let minDist = Infinity;
+  for (const [name, mapHex] of Object.entries(colorMap)) {
+    const rgb = hexToRgb(mapHex)!;
+    const dist =
+      Math.pow(target.r - rgb.r, 2) +
+      Math.pow(target.g - rgb.g, 2) +
+      Math.pow(target.b - rgb.b, 2);
+    if (dist < minDist) {
+      minDist = dist;
+      closest = name;
+    }
+  }
+  return closest;
+}
 
 export default function DevicePage() {
   const router = useRouter();
@@ -16,7 +64,64 @@ export default function DevicePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const colors = ["Red", "Green", "Blue", "Yellow", "Purple", "Orange", "White", "Black"];
+  const [colorHex, setColorHex] = useState("#ff0000");
+  const [colorRgb, setColorRgb] = useState({ r: 255, g: 0, b: 0 });
+  const [hexInput, setHexInput] = useState("#ff0000");
+  const [rgbInput, setRgbInput] = useState({ r: "255", g: "0", b: "0" });
+
+  const lastChangeSource = useRef<"hex" | "rgb" | null>(null);
+  const hiddenColorInput = useRef<HTMLInputElement>(null);
+
+  const colors = useMemo(() => Object.keys(colorMap), []);
+
+  // Sync color name → hex/rgb
+  useEffect(() => {
+    if (colors.includes(color)) {
+      const hex = colorMap[color];
+      setColorHex(hex);
+      const rgb = hexToRgb(hex)!;
+      setColorRgb(rgb);
+      setRgbInput({ r: String(rgb.r), g: String(rgb.g), b: String(rgb.b) });
+    }
+  }, [color, colors]);
+
+  // HEX → RGB + closest color
+  useEffect(() => {
+    if (lastChangeSource.current === "hex") {
+      const rgb = hexToRgb(colorHex);
+      if (rgb) {
+        setColorRgb(rgb);
+        setRgbInput({ r: String(rgb.r), g: String(rgb.g), b: String(rgb.b) });
+        setColor(closestColorName(colorHex, colorMap));
+      }
+      lastChangeSource.current = null;
+    }
+    setHexInput(colorHex);
+  }, [colorHex]);
+
+  // RGB → HEX + closest color
+  useEffect(() => {
+    if (lastChangeSource.current === "rgb") {
+      const hex = rgbToHex(colorRgb.r, colorRgb.g, colorRgb.b);
+      if (hex.toLowerCase() !== colorHex.toLowerCase()) setColorHex(hex);
+      setColor(closestColorName(hex, colorMap));
+      lastChangeSource.current = null;
+    }
+  }, [colorRgb, colorHex]);
+
+  // Handle RGB input
+  const handleRgbChange = (ch: "r" | "g" | "b") => (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/[^\d]/g, "");
+    val = val.slice(0, 3);
+    setRgbInput((prev) => ({ ...prev, [ch]: val }));
+    const num = Math.min(255, Math.max(0, Number(val || "0")));
+    lastChangeSource.current = "rgb";
+    setColorRgb((prev) => ({ ...prev, [ch]: num }));
+  };
+
+  const handleRgbBlur = (ch: "r" | "g" | "b") => () => {
+    setRgbInput((prev) => ({ ...prev, [ch]: prev[ch] === "" ? "0" : prev[ch] }));
+  };
 
   const handleRegisterDevice = async () => {
     try {
@@ -24,7 +129,7 @@ export default function DevicePage() {
       setError(null);
       setSuccess(null);
 
-      const response = await axios.post(
+      await axios.post(
         "/api/users/devices",
         { name: deviceName, color, brightness },
         { withCredentials: true }
@@ -34,10 +139,15 @@ export default function DevicePage() {
       setDeviceName("");
       setColor("Red");
       setBrightness(100);
+      setColorHex("#ff0000");
+      setColorRgb({ r: 255, g: 0, b: 0 });
+      setRgbInput({ r: "255", g: "0", b: "0" });
+      setHexInput("#ff0000");
 
       setTimeout(() => router.push("/dashboard"), 1000);
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to register device.");
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) setError(err.response?.data?.error || "Failed to register device.");
+      else setError("Failed to register device.");
     } finally {
       setLoading(false);
     }
@@ -46,26 +156,27 @@ export default function DevicePage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-8 bg-gray-800">
       <main className="text-center w-full max-w-2xl">
-          {/* Back to Dashboard Button */}
-          <button
+        <button
           onClick={() => router.push("/dashboard")}
           className="absolute top-4 right-4 text-white hover:text-blue-500 transition flex items-center"
           title="Back to Dashboard"
-          >
-          <MdArrowBack size={28} className="mr-2" /> {/* Use the same symbol */}
+        >
+          <MdArrowBack size={28} className="mr-2" />
           Back to Dashboard
         </button>
+
         <Image src="/Logo.svg" alt="LL logo" width={200} height={38} priority />
         <h1 className="text-4xl font-bold mt-6">Luminosity LEDs</h1>
         <p className="italic">Illuminate your creativity and expression</p>
-        <div className="flex flex-col items-center justify-center max-h-lg bg-blue-100 p-6 max-w-lg mx-auto mt-10 rounded-xl shadow-lg">
-          <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md">
+
+        <div className="flex flex-col items-center justify-center bg-white p-6 max-w-lg mx-auto mt-10 rounded-xl shadow-lg">
+          <div className="bg-blue-100 shadow-lg rounded-lg p-8 w-full max-w-md">
             <h1 className="text-black text-3xl font-bold text-center mb-6">Register Device</h1>
 
             {error && <div className="text-red-600 bg-red-100 p-3 rounded-md mb-4">{error}</div>}
             {success && <div className="text-green-600 bg-green-100 p-3 rounded-md mb-4">{success}</div>}
 
-            {/* Device Name Input */}
+            {/* Device Name */}
             <label className="block text-gray-700 font-semibold mb-2">Device Name</label>
             <input
               type="text"
@@ -75,22 +186,78 @@ export default function DevicePage() {
               className="text-gray-700 w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 mb-4"
             />
 
-            {/* Color Selection Dropdown */}
-            <label className="block text-gray-700 font-semibold mb-2">Starting Color</label>
-            <select
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 mb-4 ${getTextColorClass(color)}`}
-            >
-              {colors.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            {/* Color Picker */}
+            <div className="flex flex-col items-center mt-4 mb-6"> {/* added mb-6 for spacing */}
+              <label className="text-gray-700 font-semibold mb-2">Color Wheel</label>
+              
+              <div
+                className="w-12 h-12 rounded-full cursor-pointer border-2 border-black"
+                style={{ backgroundColor: colorHex }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = `0 0 15px 5px ${colorHex}`;
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 0px 0px transparent";
+                }}
+                onClick={() => hiddenColorInput.current?.click()}
+              >
+                <input
+                  type="color"
+                  ref={hiddenColorInput}
+                  value={colorHex}
+                  onChange={(e) => {
+                    lastChangeSource.current = "hex";
+                    setColorHex(e.target.value);
+                  }}
+                  className="absolute w-0 h-0 opacity-0 pointer-events-none"
+                />
+              </div>
+            </div>
 
-            {/* Brightness Slider */}
-            <label className="block text-gray-700 font-semibold mb-2">Starting Brightness: {brightness}%</label>
+            {/* RGB */}
+            <label className="block text-gray-700 font-semibold mb-2">RGB</label>
+            <div className="flex space-x-2 mb-4">
+              {(["r", "g", "b"] as const).map((ch) => (
+                <input
+                  key={ch}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d*"
+                  value={rgbInput[ch]}
+                  onChange={handleRgbChange(ch)}
+                  onBlur={handleRgbBlur(ch)}
+                  className="w-1/3 p-2 border rounded-lg text-gray-700"
+                  placeholder={ch.toUpperCase()}
+                  maxLength={3}
+                />
+              ))}
+            </div>
+
+            {/* HEX */}
+            <label className="block text-gray-700 font-semibold mb-2">HEX</label>
+            <div className="flex items-center mb-4">
+              <span className="px-3 py-3 border border-r-0 rounded-l-lg bg-gray-100 text-gray-700 font-mono select-none">#</span>
+              <input
+                type="text"
+                value={hexInput.replace(/^#/, "")}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^A-Fa-f0-9]/g, "");
+                  setHexInput("#" + val);
+                  if (/^[A-Fa-f0-9]{6}$/.test(val)) {
+                    lastChangeSource.current = "hex";
+                    setColorHex("#" + val);
+                  }
+                }}
+                className="w-full p-3 border rounded-r-lg text-gray-700 font-mono"
+                placeholder="RRGGBB"
+                maxLength={6}
+              />
+            </div>
+
+            {/* Brightness */}
+            <label className="block text-gray-700 font-semibold mb-2">
+              Starting Brightness: {brightness}%
+            </label>
             <input
               type="range"
               min="0"
@@ -100,7 +267,7 @@ export default function DevicePage() {
               className="w-full mb-4"
             />
 
-            {/* Register Button */}
+            {/* Register */}
             <button
               onClick={handleRegisterDevice}
               disabled={loading || !deviceName}
