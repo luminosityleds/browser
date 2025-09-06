@@ -1,10 +1,14 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import Image from "next/image";
 import { LogOut } from "lucide-react";
 import axios from "axios";
+import { closestColorName } from "../utils/closestColor";
+import { colors } from "../utils/colorMap";
+import { hexToRGB } from "../utils/hexToRGB";
+import { rgbToHex } from "../utils/rgbToHex";
 import { useRouter } from "next/navigation";
 
 // ------------------ Types ------------------
@@ -17,7 +21,7 @@ interface RGB {
 interface Device {
   _id: string;
   name: string;
-  color: string;       // Only the named color is stored
+  color: string;       // Named color
   brightness: number;
   powered: boolean;
 }
@@ -26,47 +30,6 @@ interface User {
   _id: string;
   name: string;
   email: string;
-}
-
-// ------------------ Color Map ------------------
-const colorMap: Record<string, string> = {
-  Red: "#ff0000",
-  Green: "#00ff00",
-  Blue: "#0000ff",
-  Yellow: "#ffff00",
-  Purple: "#800080",
-  Orange: "#ffa500",
-  White: "#ffffff",
-  Black: "#000000",
-};
-
-// ------------------ Utility Functions ------------------
-function rgbToHex(r: number, g: number, b: number): string {
-  return "#" + [r, g, b].map(x => x.toString(16).padStart(2, "0")).join("");
-}
-
-function hexToRgb(hex: string): RGB | null {
-  const match = hex.replace("#", "").match(/^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
-  if (!match) return null;
-  return { r: parseInt(match[1], 16), g: parseInt(match[2], 16), b: parseInt(match[3], 16) };
-}
-
-function closestColorName(hex: string, colorMap: Record<string, string>): string {
-  const target = hexToRgb(hex);
-  if (!target) return "Red";
-
-  let closest = "Red";
-  let minDist = Infinity;
-
-  for (const [name, mapHex] of Object.entries(colorMap)) {
-    const rgb = hexToRgb(mapHex)!;
-    const dist = Math.pow(target.r - rgb.r, 2) + Math.pow(target.g - rgb.g, 2) + Math.pow(target.b - rgb.b, 2);
-    if (dist < minDist) {
-      minDist = dist;
-      closest = name;
-    }
-  }
-  return closest;
 }
 
 // ------------------ Dashboard Component ------------------
@@ -78,34 +41,37 @@ export default function Dashboard() {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [editValues, setEditValues] = useState<Omit<Device, "_id">>({
     name: "",
-    color: "Red",
+    color: colors[0].name,
     brightness: 100,
     powered: false,
   });
   const [loading, setLoading] = useState(true);
 
+  // ------------------ Color Picker State ------------------
   const [colorHex, setColorHex] = useState("#ff0000");
   const [colorRgb, setColorRgb] = useState<RGB>({ r: 255, g: 0, b: 0 });
   const [hexInput, setHexInput] = useState("#ff0000");
+  const [rgbInput, setRgbInput] = useState({ r: "255", g: "0", b: "0" });
   const lastChangeSource = useRef<"hex" | "rgb" | null>(null);
   const hiddenColorInput = useRef<HTMLInputElement | null>(null);
 
-  // ------------------ Fetch User + Devices ------------------
+  // Memoized colors array
+  const colorsList = useMemo(() => colors, []);
+
+  // ------------------ Fetch Data ------------------
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const response = await axios.get<{ data: User }>("/api/users/me");
         const user = response.data.data;
 
-        if (user && user._id) {
-          setUserId(user._id);
-          const deviceRes = await axios.get<{ devices: Device[] }>("/api/users/dashboard");
-          setDevices(deviceRes.data.devices);
-        } else {
-          throw new Error("User ID not found");
-        }
+        if (!user || !user._id) throw new Error("User ID not found");
+        setUserId(user._id);
+
+        const deviceRes = await axios.get<{ devices: Device[] }>("/api/users/dashboard");
+        setDevices(deviceRes.data.devices);
       } catch (error: unknown) {
-        if (error instanceof Error) console.error("Error fetching data:", error.message);
+        console.error("Error fetching data:", error);
         router.push("/login");
       } finally {
         setLoading(false);
@@ -117,7 +83,6 @@ export default function Dashboard() {
   // ------------------ Selected Device ------------------
   useEffect(() => {
     if (!selectedDeviceId) return;
-
     const device = devices.find(d => d._id === selectedDeviceId) || null;
     setSelectedDevice(device);
 
@@ -129,43 +94,79 @@ export default function Dashboard() {
         powered: device.powered,
       });
 
-      const hex = colorMap[device.color] || "#ff0000";
-      setColorHex(hex);
-      setColorRgb(hexToRgb(hex)!);
-      setHexInput(hex);
+      const selectedColor = colorsList.find(c => c.name === device.color) || colorsList[0];
+      setColorHex(selectedColor.hex);
+      const rgb = hexToRGB(selectedColor.hex);
+      setColorRgb(rgb || { r: 255, g: 0, b: 0 });
+      setHexInput(selectedColor.hex);
+      setRgbInput({ r: String(rgb?.r ?? 255), g: String(rgb?.g ?? 0), b: String(rgb?.b ?? 0) });
     }
-  }, [selectedDeviceId, devices]);
+  }, [selectedDeviceId, devices, colorsList]);
 
   // ------------------ HEX ↔ RGB Sync ------------------
   useEffect(() => {
     if (lastChangeSource.current === "hex") {
-      const rgb = hexToRgb(colorHex);
-      if (rgb) setColorRgb(rgb);
+      const rgb = hexToRGB(colorHex);
+      if (rgb) {
+        setColorRgb(rgb);
+        setRgbInput({ r: String(rgb.r), g: String(rgb.g), b: String(rgb.b) });
+
+        // Update color name
+        const name = closestColorName(colorHex, colorsList);
+        if (name) setEditValues(prev => ({ ...prev, color: name }));
+
+        // Only update hexInput if it is valid and differs
+        if (hexInput.toLowerCase() !== colorHex.toLowerCase()) {
+          setHexInput(colorHex);
+        }
+      }
       lastChangeSource.current = null;
     }
-    setHexInput(colorHex);
-  }, [colorHex]);
+  }, [colorHex, colorsList, hexInput]);
+    // TODO: Potential infinite loop: colorHex
 
   useEffect(() => {
     if (lastChangeSource.current === "rgb") {
       const hex = rgbToHex(colorRgb.r, colorRgb.g, colorRgb.b);
       if (hex.toLowerCase() !== colorHex.toLowerCase()) setColorHex(hex);
+
+      setRgbInput({ r: String(colorRgb.r), g: String(colorRgb.g), b: String(colorRgb.b) });
+
+      const name = closestColorName(hex, colorsList);
+      if (name) setEditValues(prev => ({ ...prev, color: name }));
+
+      // ✅ Update hexInput so the HEX input field shows the new value
+      if (hexInput.toLowerCase() !== hex.toLowerCase()) setHexInput(hex);
+
       lastChangeSource.current = null;
     }
-  }, [colorRgb, colorHex]);
+  }, [colorRgb, colorHex, colorsList, hexInput]);
+
+
+  // ------------------ RGB Input Handlers ------------------
+  const handleRgbChange = (ch: "r" | "g" | "b") => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 3);
+    setRgbInput(prev => ({ ...prev, [ch]: val }));
+    const num = Math.min(255, Math.max(0, Number(val || "0")));
+    lastChangeSource.current = "rgb";
+    setColorRgb(prev => ({ ...prev, [ch]: num }));
+  };
+
+  const handleRgbBlur = (ch: "r" | "g" | "b") => () => {
+    setRgbInput(prev => ({ ...prev, [ch]: prev[ch] === "" ? "0" : prev[ch] }));
+  };
 
   // ------------------ Actions ------------------
   const handleDeviceUpdate = async () => {
     try {
-      const colorName = closestColorName(colorHex, colorMap);
-      await axios.put("/api/users/dashboard", { id: selectedDeviceId, ...editValues, color: colorName });
-
+      await axios.put("/api/users/dashboard", { id: selectedDeviceId, ...editValues });
       alert("Device updated successfully");
+
       const updatedDevices = await axios.get<{ devices: Device[] }>("/api/users/dashboard");
       setDevices(updatedDevices.data.devices);
     } catch (error: unknown) {
-      if (error instanceof Error) alert("Failed to update device: " + error.message);
-      else alert("Failed to update device");
+      alert("Failed to update device");
+      console.error("Something went wrong:", error);
     }
   };
 
@@ -174,41 +175,28 @@ export default function Dashboard() {
     try {
       await axios.delete("/api/users/dashboard", { data: { deviceId: selectedDeviceId } });
       alert("Device deleted successfully");
+
       const updatedDevices = await axios.get<{ devices: Device[] }>("/api/users/dashboard");
       setDevices(updatedDevices.data.devices);
       setSelectedDeviceId("");
     } catch (error: unknown) {
-      if (error instanceof Error) alert("Failed to delete device: " + error.message);
-      else alert("Failed to delete device");
+      alert("Failed to delete device");
+      console.error("Something went wrong:", error);
     }
   };
 
   const logout = async () => {
-    try {
-      await axios.get("/api/users/logout");
-      router.push("/login");
-    } catch (error: unknown) {
-      if (error instanceof Error) console.log("Error logging out:", error.message);
-    }
+    await axios.get("/api/users/logout");
+    router.push("/login");
   };
 
   const registerDevice = () => router.push("/device");
 
   const deleteAccount = async () => {
-    if (!confirm("Are you sure you want to delete your account? This action cannot be undone.")) return;
-
-    try {
-      if (!userId) {
-        alert("User ID not found. Please log in again.");
-        router.push("/login");
-        return;
-      }
-      await axios.delete("/api/users/deleteAccount", { data: { userId } });
-      alert("Your account has been deleted.");
-      router.push("/login");
-    } catch (error: unknown) {
-      if (error instanceof Error) console.error("Error deleting account:", error.message);
-    }
+    if (!confirm("Are you sure?")) return;
+    if (!userId) return router.push("/login");
+    await axios.delete("/api/users/deleteAccount", { data: { userId } });
+    router.push("/login");
   };
 
   // ------------------ Render ------------------
@@ -249,7 +237,6 @@ export default function Dashboard() {
 
             {selectedDevice && (
               <div className="mt-6 bg-blue-100 p-4 text-left rounded-lg shadow">
-
                 {/* Device Name */}
                 <label className="block mb-2">Name</label>
                 <input
@@ -262,45 +249,33 @@ export default function Dashboard() {
                 {/* Color Wheel */}
                 <div className="flex flex-col items-center mt-4 mb-6">
                   <label className="text-gray-700 font-semibold mb-2">Color Wheel</label>
-
                   <div
                     className="w-12 h-12 rounded-full cursor-pointer border-2 border-black"
                     style={{ backgroundColor: colorHex }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.boxShadow = `0 0 15px 5px ${colorHex}`;
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 0px 0px transparent";
-                    }}
+                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.boxShadow = `0 0 15px 5px ${colorHex}`}
+                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 0px 0px transparent"}
                     onClick={() => hiddenColorInput.current?.click()}
                   >
                     <input
                       type="color"
                       ref={hiddenColorInput}
                       value={colorHex}
-                      onChange={(e) => {
-                        lastChangeSource.current = "hex";
-                        setColorHex(e.target.value);
-                      }}
+                      onChange={e => { lastChangeSource.current = "hex"; setColorHex(e.target.value); }}
                       className="absolute w-0 h-0 opacity-0 pointer-events-none"
                     />
                   </div>
                 </div>
 
-                {/* RGB */}
+                {/* RGB Inputs */}
                 <label className="block mb-2">RGB</label>
                 <div className="flex space-x-2 mb-4">
-                  {(["r", "g", "b"] as const).map(ch => (
+                  {(["r","g","b"] as const).map(ch => (
                     <input
                       key={ch}
                       type="text"
-                      value={colorRgb[ch]}
-                      onChange={e => {
-                        const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 3);
-                        const num = Math.min(255, Math.max(0, Number(val) || 0));
-                        lastChangeSource.current = "rgb";
-                        setColorRgb({ ...colorRgb, [ch]: num });
-                      }}
+                      value={rgbInput[ch]}
+                      onChange={handleRgbChange(ch)}
+                      onBlur={handleRgbBlur(ch)}
                       className="w-1/3 p-2 border rounded-lg text-gray-700"
                       placeholder={ch.toUpperCase()}
                       inputMode="numeric"
@@ -308,7 +283,7 @@ export default function Dashboard() {
                   ))}
                 </div>
 
-                {/* HEX */}
+                {/* HEX Input */}
                 <label className="block mb-2">HEX</label>
                 <div className="flex items-center mb-4">
                   <span className="px-3 py-3 border border-r-0 rounded-l-lg bg-gray-100 text-gray-700 font-mono select-none">#</span>
@@ -317,8 +292,11 @@ export default function Dashboard() {
                     value={hexInput.replace(/^#/, "")}
                     onChange={e => {
                       const val = e.target.value.replace(/[^A-Fa-f0-9]/g, "");
-                      setHexInput("#" + val);
-                      if (/^[A-Fa-f0-9]{6}$/.test(val)) { lastChangeSource.current = "hex"; setColorHex("#" + val); }
+                      setHexInput("#" + val);  // update input as user types
+                      if (/^[A-Fa-f0-9]{6}$/.test(val)) {
+                        lastChangeSource.current = "hex";
+                        setColorHex("#" + val);  // only update colorHex when user finishes 6 chars
+                      }
                     }}
                     className="w-full p-3 border rounded-r-lg text-gray-700 font-mono"
                     placeholder="RRGGBB"
@@ -345,26 +323,17 @@ export default function Dashboard() {
                   onChange={e => setEditValues({ ...editValues, powered: e.target.checked })}
                 />
 
-                {/* Buttons */}
-                <button onClick={handleDeviceUpdate} className="mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
-                  Update Device
-                </button>
-                <button onClick={handleDeviceDelete} className="mt-2 w-full bg-red-600 text-white py-2 rounded hover:bg-red-700">
-                  Delete Device
-                </button>
-
+                {/* Action Buttons */}
+                <button onClick={handleDeviceUpdate} className="mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Update Device</button>
+                <button onClick={handleDeviceDelete} className="mt-2 w-full bg-red-600 text-white py-2 rounded hover:bg-red-700">Delete Device</button>
               </div>
             )}
           </div>
         )}
 
         <div className="mt-10 space-y-2">
-          <button onClick={deleteAccount} className="w-full py-2 bg-red-600 text-white font-semibold rounded hover:bg-red-700">
-            Delete Account
-          </button>
-          <button onClick={registerDevice} className="w-full py-2 bg-green-600 text-white font-semibold rounded hover:bg-green-700">
-            Register New Device
-          </button>
+          <button onClick={deleteAccount} className="w-full py-2 bg-red-600 text-white font-semibold rounded hover:bg-red-700">Delete Account</button>
+          <button onClick={registerDevice} className="w-full py-2 bg-green-600 text-white font-semibold rounded hover:bg-green-700">Register New Device</button>
         </div>
       </main>
     </div>

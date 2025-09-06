@@ -5,54 +5,18 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { MdArrowBack } from "react-icons/md";
 import axios from "axios";
+import { closestColorName } from "../utils/closestColor";
+// ✅ Import array of colors
+import { colors } from "../utils/colorMap";
+import { hexToRGB } from "../utils/hexToRGB";
+import { rgbToHex } from "../utils/rgbToHex";
 import { useRouter } from "next/navigation";
 
-// Utility functions
-function rgbToHex(r: number, g: number, b: number) {
-  return (
-    "#" +
-    [r, g, b]
-      .map((x) => x.toString(16).padStart(2, "0"))
-      .join("")
-  );
-}
-
-function hexToRgb(hex: string) {
-  const match = hex.replace("#", "").match(/^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
-  if (!match) return null;
-  return { r: parseInt(match[1], 16), g: parseInt(match[2], 16), b: parseInt(match[3], 16) };
-}
-
-// Color map
-const colorMap: Record<string, string> = {
-  Red: "#ff0000",
-  Green: "#00ff00",
-  Blue: "#0000ff",
-  Yellow: "#ffff00",
-  Purple: "#800080",
-  Orange: "#ffa500",
-  White: "#ffffff",
-  Black: "#000000",
-};
-
-// Closest color helper
-function closestColorName(hex: string, colorMap: Record<string, string>): string {
-  const target = hexToRgb(hex);
-  if (!target) return "Red";
-  let closest = "Red";
-  let minDist = Infinity;
-  for (const [name, mapHex] of Object.entries(colorMap)) {
-    const rgb = hexToRgb(mapHex)!;
-    const dist =
-      Math.pow(target.r - rgb.r, 2) +
-      Math.pow(target.g - rgb.g, 2) +
-      Math.pow(target.b - rgb.b, 2);
-    if (dist < minDist) {
-      minDist = dist;
-      closest = name;
-    }
-  }
-  return closest;
+// Define type for RGB
+interface RGB {
+  r: number;
+  g: number;
+  b: number;
 }
 
 export default function DevicePage() {
@@ -65,54 +29,64 @@ export default function DevicePage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const [colorHex, setColorHex] = useState("#ff0000");
-  const [colorRgb, setColorRgb] = useState({ r: 255, g: 0, b: 0 });
+  const [colorRgb, setColorRgb] = useState<RGB>({ r: 255, g: 0, b: 0 });
   const [hexInput, setHexInput] = useState("#ff0000");
   const [rgbInput, setRgbInput] = useState({ r: "255", g: "0", b: "0" });
 
   const lastChangeSource = useRef<"hex" | "rgb" | null>(null);
   const hiddenColorInput = useRef<HTMLInputElement>(null);
 
-  const colors = useMemo(() => Object.keys(colorMap), []);
+  // ✅ useMemo just stores the array of colors
+  const colorsList = useMemo(() => colors, []);
 
   // Sync color name → hex/rgb
   useEffect(() => {
-    if (colors.includes(color)) {
-      const hex = colorMap[color];
-      setColorHex(hex);
-      const rgb = hexToRgb(hex)!;
-      setColorRgb(rgb);
-      setRgbInput({ r: String(rgb.r), g: String(rgb.g), b: String(rgb.b) });
+    const selected = colorsList.find((c) => c.name === color);
+    if (selected) {
+      setColorHex(selected.hex);
+      const rgb = hexToRGB(selected.hex);
+      if (rgb) {
+        setColorRgb(rgb);
+        setRgbInput({ r: String(rgb.r), g: String(rgb.g), b: String(rgb.b) });
+      }
     }
-  }, [color, colors]);
+  }, [colorsList, color]);
 
   // HEX → RGB + closest color
   useEffect(() => {
     if (lastChangeSource.current === "hex") {
-      const rgb = hexToRgb(colorHex);
+      const rgb = hexToRGB(colorHex);
       if (rgb) {
         setColorRgb(rgb);
         setRgbInput({ r: String(rgb.r), g: String(rgb.g), b: String(rgb.b) });
-        setColor(closestColorName(colorHex, colorMap));
+
+        // ✅ use colorsList array
+        const name = closestColorName(colorHex, colorsList);
+        if (name) setColor(name);
       }
       lastChangeSource.current = null;
     }
     setHexInput(colorHex);
-  }, [colorHex]);
+  }, [colorHex, colorsList]);
+    // TODO: Potential infinite loop: colorHex
 
   // RGB → HEX + closest color
   useEffect(() => {
     if (lastChangeSource.current === "rgb") {
       const hex = rgbToHex(colorRgb.r, colorRgb.g, colorRgb.b);
       if (hex.toLowerCase() !== colorHex.toLowerCase()) setColorHex(hex);
-      setColor(closestColorName(hex, colorMap));
+
+      // ✅ use colorsList array
+      const name = closestColorName(hex, colorsList);
+      if (name) setColor(name);
+
       lastChangeSource.current = null;
     }
-  }, [colorRgb, colorHex]);
+  }, [colorRgb, colorHex, colorsList]);
 
   // Handle RGB input
   const handleRgbChange = (ch: "r" | "g" | "b") => (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/[^\d]/g, "");
-    val = val.slice(0, 3);
+    const val = e.target.value.replace(/[^\d]/g, "").slice(0, 3);
     setRgbInput((prev) => ({ ...prev, [ch]: val }));
     const num = Math.min(255, Math.max(0, Number(val || "0")));
     lastChangeSource.current = "rgb";
@@ -123,6 +97,7 @@ export default function DevicePage() {
     setRgbInput((prev) => ({ ...prev, [ch]: prev[ch] === "" ? "0" : prev[ch] }));
   };
 
+  // Register device
   const handleRegisterDevice = async () => {
     try {
       setLoading(true);
@@ -131,18 +106,26 @@ export default function DevicePage() {
 
       await axios.post(
         "/api/users/devices",
-        { name: deviceName, color, brightness },
+        { 
+          name: deviceName, 
+          color, 
+          brightness 
+        },
         { withCredentials: true }
       );
 
       setSuccess("Device registered successfully!");
+
+      // Reset state
+      const defaultColor = colorsList.find(c => c.name === "Ruby Red") || colorsList[0];
       setDeviceName("");
-      setColor("Red");
+      setColor(defaultColor.name);
       setBrightness(100);
-      setColorHex("#ff0000");
-      setColorRgb({ r: 255, g: 0, b: 0 });
-      setRgbInput({ r: "255", g: "0", b: "0" });
-      setHexInput("#ff0000");
+      setColorHex(defaultColor.hex);
+      const rgb = hexToRGB(defaultColor.hex);
+      setColorRgb(rgb || { r: 255, g: 0, b: 0 });
+      setRgbInput({ r: String(rgb?.r ?? 255), g: String(rgb?.g ?? 0), b: String(rgb?.b ?? 0) });
+      setHexInput(defaultColor.hex);
 
       setTimeout(() => router.push("/dashboard"), 1000);
     } catch (err: unknown) {
@@ -186,10 +169,9 @@ export default function DevicePage() {
               className="text-gray-700 w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 mb-4"
             />
 
-            {/* Color Picker */}
-            <div className="flex flex-col items-center mt-4 mb-6"> {/* added mb-6 for spacing */}
+            {/* Color Wheel */}
+            <div className="flex flex-col items-center mt-4 mb-6">
               <label className="text-gray-700 font-semibold mb-2">Color Wheel</label>
-              
               <div
                 className="w-12 h-12 rounded-full cursor-pointer border-2 border-black"
                 style={{ backgroundColor: colorHex }}
