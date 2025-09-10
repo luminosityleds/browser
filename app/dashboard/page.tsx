@@ -21,7 +21,7 @@ interface RGB {
 interface Device {
   _id: string;
   name: string;
-  color: string;       // Named color
+  color: string; // Named color
   brightness: number;
   powered: boolean;
 }
@@ -315,13 +315,14 @@ export default function Dashboard() {
                   className="w-full mb-4"
                 />
 
-                {/* Powered */}
+                {/* Powered Toggle */}
                 <label className="block mb-2">Powered</label>
-                <input
-                  type="checkbox"
-                  checked={editValues.powered}
-                  onChange={e => setEditValues({ ...editValues, powered: e.target.checked })}
-                />
+                <div
+                  onClick={() => setEditValues(prev => ({ ...prev, powered: !prev.powered }))}
+                  className={`relative w-14 h-8 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${editValues.powered ? "bg-green-500" : "bg-gray-300"}`}
+                >
+                  <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${editValues.powered ? "translate-x-6" : "translate-x-0"}`} />
+                </div>
 
                 {/* Action Buttons */}
                 <button onClick={handleDeviceUpdate} className="mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Update Device</button>

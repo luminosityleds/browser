@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   try {
     const userId = getDataFromToken(request); // ✅ use helper
 
-    const { name, color, brightness } = await request.json();
+    const { name, color, brightness, powered } = await request.json();
 
     if (!name) {
       return NextResponse.json(
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       connectedTimestamp: new Date(),
       user: userId,
       lastUpdated: new Date(),
-      powered: false,
+      powered: powered ?? false,
       poweredTimestamp: new Date(),
       color,
       colorTimestamp: new Date(),

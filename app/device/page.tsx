@@ -6,13 +6,12 @@ import Image from "next/image";
 import { MdArrowBack } from "react-icons/md";
 import axios from "axios";
 import { closestColorName } from "../utils/closestColor";
-// ✅ Import array of colors
 import { colors } from "../utils/colorMap";
 import { hexToRGB } from "../utils/hexToRGB";
 import { rgbToHex } from "../utils/rgbToHex";
 import { useRouter } from "next/navigation";
 
-// Define type for RGB
+// ------------------ Types ------------------
 interface RGB {
   r: number;
   g: number;
@@ -21,106 +20,92 @@ interface RGB {
 
 export default function DevicePage() {
   const router = useRouter();
-  const [deviceName, setDeviceName] = useState("");
-  const [color, setColor] = useState("Red");
-  const [brightness, setBrightness] = useState(100);
+
+  const [editValues, setEditValues] = useState({
+    name: "",
+    brightness: 100,
+    powered: false,
+  });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // ------------------ Color Picker State ------------------
   const [colorHex, setColorHex] = useState("#ff0000");
   const [colorRgb, setColorRgb] = useState<RGB>({ r: 255, g: 0, b: 0 });
   const [hexInput, setHexInput] = useState("#ff0000");
   const [rgbInput, setRgbInput] = useState({ r: "255", g: "0", b: "0" });
-
   const lastChangeSource = useRef<"hex" | "rgb" | null>(null);
   const hiddenColorInput = useRef<HTMLInputElement>(null);
 
-  // ✅ useMemo just stores the array of colors
   const colorsList = useMemo(() => colors, []);
 
-  // Sync color name → hex/rgb
-  useEffect(() => {
-    const selected = colorsList.find((c) => c.name === color);
-    if (selected) {
-      setColorHex(selected.hex);
-      const rgb = hexToRGB(selected.hex);
-      if (rgb) {
-        setColorRgb(rgb);
-        setRgbInput({ r: String(rgb.r), g: String(rgb.g), b: String(rgb.b) });
-      }
-    }
-  }, [colorsList, color]);
-
-  // HEX → RGB + closest color
+  // ------------------ HEX ↔ RGB Sync ------------------
   useEffect(() => {
     if (lastChangeSource.current === "hex") {
       const rgb = hexToRGB(colorHex);
       if (rgb) {
         setColorRgb(rgb);
         setRgbInput({ r: String(rgb.r), g: String(rgb.g), b: String(rgb.b) });
-
-        // ✅ use colorsList array
-        const name = closestColorName(colorHex, colorsList);
-        if (name) setColor(name);
+        if (hexInput.toLowerCase() !== colorHex.toLowerCase()) setHexInput(colorHex);
       }
       lastChangeSource.current = null;
     }
-    setHexInput(colorHex);
-  }, [colorHex, colorsList]);
-    // TODO: Potential infinite loop: colorHex
+  }, [colorHex, hexInput]);
 
-  // RGB → HEX + closest color
   useEffect(() => {
     if (lastChangeSource.current === "rgb") {
       const hex = rgbToHex(colorRgb.r, colorRgb.g, colorRgb.b);
       if (hex.toLowerCase() !== colorHex.toLowerCase()) setColorHex(hex);
-
-      // ✅ use colorsList array
-      const name = closestColorName(hex, colorsList);
-      if (name) setColor(name);
-
+      setRgbInput({ r: String(colorRgb.r), g: String(colorRgb.g), b: String(colorRgb.b) });
+      if (hexInput.toLowerCase() !== hex.toLowerCase()) setHexInput(hex);
       lastChangeSource.current = null;
     }
-  }, [colorRgb, colorHex, colorsList]);
+  }, [colorRgb, colorHex, hexInput]);
 
-  // Handle RGB input
   const handleRgbChange = (ch: "r" | "g" | "b") => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/[^\d]/g, "").slice(0, 3);
-    setRgbInput((prev) => ({ ...prev, [ch]: val }));
+    const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 3);
+    setRgbInput(prev => ({ ...prev, [ch]: val }));
     const num = Math.min(255, Math.max(0, Number(val || "0")));
     lastChangeSource.current = "rgb";
-    setColorRgb((prev) => ({ ...prev, [ch]: num }));
+    setColorRgb(prev => ({ ...prev, [ch]: num }));
   };
 
   const handleRgbBlur = (ch: "r" | "g" | "b") => () => {
-    setRgbInput((prev) => ({ ...prev, [ch]: prev[ch] === "" ? "0" : prev[ch] }));
+    setRgbInput(prev => ({ ...prev, [ch]: prev[ch] === "" ? "0" : prev[ch] }));
   };
 
-  // Register device
+  // ------------------ Register Device ------------------
   const handleRegisterDevice = async () => {
+    if (!editValues.name.trim()) {
+      setError("⚠️ Please enter a device name before registering.");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       setSuccess(null);
 
+      const colorName = closestColorName(colorHex, colorsList);
+
       await axios.post(
         "/api/users/devices",
-        { 
-          name: deviceName, 
-          color, 
-          brightness 
+        {
+          name: editValues.name,
+          color: colorName,
+          brightness: editValues.brightness,
+          powered: editValues.powered,
         },
         { withCredentials: true }
       );
 
       setSuccess("Device registered successfully!");
 
-      // Reset state
+      // Reset form
       const defaultColor = colorsList.find(c => c.name === "Ruby Red") || colorsList[0];
-      setDeviceName("");
-      setColor(defaultColor.name);
-      setBrightness(100);
+      setEditValues({ name: "", brightness: 100, powered: false });
       setColorHex(defaultColor.hex);
       const rgb = hexToRGB(defaultColor.hex);
       setColorRgb(rgb || { r: 255, g: 0, b: 0 });
@@ -142,10 +127,8 @@ export default function DevicePage() {
         <button
           onClick={() => router.push("/dashboard")}
           className="absolute top-4 right-4 text-white hover:text-blue-500 transition flex items-center"
-          title="Back to Dashboard"
         >
-          <MdArrowBack size={28} className="mr-2" />
-          Back to Dashboard
+          <MdArrowBack size={28} className="mr-2" /> Back to Dashboard
         </button>
 
         <Image src="/Logo.svg" alt="LL logo" width={200} height={38} priority />
@@ -164,8 +147,8 @@ export default function DevicePage() {
             <input
               type="text"
               placeholder="Enter device name"
-              value={deviceName}
-              onChange={(e) => setDeviceName(e.target.value)}
+              value={editValues.name}
+              onChange={(e) => setEditValues(prev => ({ ...prev, name: e.target.value }))}
               className="text-gray-700 w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 mb-4"
             />
 
@@ -175,28 +158,21 @@ export default function DevicePage() {
               <div
                 className="w-12 h-12 rounded-full cursor-pointer border-2 border-black"
                 style={{ backgroundColor: colorHex }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = `0 0 15px 5px ${colorHex}`;
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 0px 0px transparent";
-                }}
+                onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.boxShadow = `0 0 15px 5px ${colorHex}`}
+                onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 0px 0px transparent"}
                 onClick={() => hiddenColorInput.current?.click()}
               >
                 <input
                   type="color"
                   ref={hiddenColorInput}
                   value={colorHex}
-                  onChange={(e) => {
-                    lastChangeSource.current = "hex";
-                    setColorHex(e.target.value);
-                  }}
+                  onChange={(e) => { lastChangeSource.current = "hex"; setColorHex(e.target.value); }}
                   className="absolute w-0 h-0 opacity-0 pointer-events-none"
                 />
               </div>
             </div>
 
-            {/* RGB */}
+            {/* RGB Inputs */}
             <label className="block text-gray-700 font-semibold mb-2">RGB</label>
             <div className="flex space-x-2 mb-4">
               {(["r", "g", "b"] as const).map((ch) => (
@@ -215,7 +191,7 @@ export default function DevicePage() {
               ))}
             </div>
 
-            {/* HEX */}
+            {/* HEX Input */}
             <label className="block text-gray-700 font-semibold mb-2">HEX</label>
             <div className="flex items-center mb-4">
               <span className="px-3 py-3 border border-r-0 rounded-l-lg bg-gray-100 text-gray-700 font-mono select-none">#</span>
@@ -225,10 +201,7 @@ export default function DevicePage() {
                 onChange={(e) => {
                   const val = e.target.value.replace(/[^A-Fa-f0-9]/g, "");
                   setHexInput("#" + val);
-                  if (/^[A-Fa-f0-9]{6}$/.test(val)) {
-                    lastChangeSource.current = "hex";
-                    setColorHex("#" + val);
-                  }
+                  if (/^[A-Fa-f0-9]{6}$/.test(val)) { lastChangeSource.current = "hex"; setColorHex("#" + val); }
                 }}
                 className="w-full p-3 border rounded-r-lg text-gray-700 font-mono"
                 placeholder="RRGGBB"
@@ -237,25 +210,32 @@ export default function DevicePage() {
             </div>
 
             {/* Brightness */}
-            <label className="block text-gray-700 font-semibold mb-2">
-              Starting Brightness: {brightness}%
-            </label>
+            <label className="block text-gray-700 font-semibold mb-2">Starting Brightness: {editValues.brightness}%</label>
             <input
               type="range"
               min="0"
               max="100"
-              value={brightness}
-              onChange={(e) => setBrightness(Number(e.target.value))}
+              value={editValues.brightness}
+              onChange={(e) => setEditValues(prev => ({ ...prev, brightness: Number(e.target.value) }))}
               className="w-full mb-4"
             />
 
-            {/* Register */}
+            {/* Powered Toggle */}
+            <label className="block text-gray-700 font-semibold mb-2 text-center">Powered</label>
+            <div className="flex justify-center mb-2">
+              <div
+                onClick={() => setEditValues(prev => ({ ...prev, powered: !prev.powered }))}
+                className={`relative w-14 h-8 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${editValues.powered ? "bg-green-500" : "bg-gray-300"}`}
+              >
+                <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${editValues.powered ? "translate-x-6" : "translate-x-0"}`} />
+              </div>
+            </div>
+
+            {/* Register Button */}
             <button
               onClick={handleRegisterDevice}
-              disabled={loading || !deviceName}
-              className={`w-full py-3 text-white font-bold rounded-lg transition ${
-                loading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
-              }`}
+              disabled={loading}
+              className={`w-full py-3 text-white font-bold rounded-lg transition ${loading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
             >
               {loading ? "Registering..." : "Register Device"}
             </button>
