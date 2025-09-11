@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-
 import Image from "next/image";
 import { LogOut } from "lucide-react";
 import axios from "axios";
@@ -49,14 +48,74 @@ export default function Dashboard() {
 
   // ------------------ Color Picker State ------------------
   const [colorHex, setColorHex] = useState("#ff0000");
-  const [colorRgb, setColorRgb] = useState<RGB>({ r: 255, g: 0, b: 0 });
+
+  // derive rgb from hex (no need to sync manually)
+  const colorRgb: RGB = useMemo(
+    () => hexToRGB(colorHex) ?? { r: 255, g: 0, b: 0 },
+    [colorHex]
+  );
+
+  // controlled inputs
   const [hexInput, setHexInput] = useState("#ff0000");
   const [rgbInput, setRgbInput] = useState({ r: "255", g: "0", b: "0" });
-  const lastChangeSource = useRef<"hex" | "rgb" | null>(null);
-  const hiddenColorInput = useRef<HTMLInputElement | null>(null);
 
-  // Memoized colors array
+  const hiddenColorInput = useRef<HTMLInputElement>(null);
   const colorsList = useMemo(() => colors, []);
+
+  // keep inputs synced whenever base color changes
+  useEffect(() => {
+    setHexInput(colorHex);
+    setRgbInput({
+      r: String(colorRgb.r),
+      g: String(colorRgb.g),
+      b: String(colorRgb.b),
+    });
+  }, [colorHex, colorRgb]);
+
+  // ------------------ RGB Handlers ------------------
+  const handleRgbChange = (ch: "r" | "g" | "b") => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 3);
+    setRgbInput((prev) => {
+      const updated = { ...prev, [ch]: val };
+
+      const r = Math.min(255, Math.max(0, Number(updated.r || "0")));
+      const g = Math.min(255, Math.max(0, Number(updated.g || "0")));
+      const b = Math.min(255, Math.max(0, Number(updated.b || "0")));
+
+      if (updated.r !== "" && updated.g !== "" && updated.b !== "") {
+        setColorHex(rgbToHex(r, g, b));
+      }
+
+      return updated;
+    });
+  };
+
+  const handleRgbBlur = () => {
+    const r = Math.min(255, Math.max(0, Number(rgbInput.r || "0")));
+    const g = Math.min(255, Math.max(0, Number(rgbInput.g || "0")));
+    const b = Math.min(255, Math.max(0, Number(rgbInput.b || "0")));
+    setRgbInput({ r: String(r), g: String(g), b: String(b) });
+    setColorHex(rgbToHex(r, g, b));
+  };
+
+  // ------------------ HEX Handlers ------------------
+  const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/[^A-Fa-f0-9]/g, "");
+    setHexInput("#" + val);
+
+    if (/^[A-Fa-f0-9]{6}$/.test(val)) {
+      setColorHex("#" + val);
+    }
+  };
+
+  const handleHexBlur = () => {
+    const val = hexInput.replace(/^#/, "");
+    if (/^[A-Fa-f0-9]{6}$/.test(val)) {
+      setColorHex("#" + val);
+    } else {
+      setHexInput(colorHex);
+    }
+  };
 
   // ------------------ Fetch Data ------------------
   useEffect(() => {
@@ -96,70 +155,14 @@ export default function Dashboard() {
 
       const selectedColor = colorsList.find(c => c.name === device.color) || colorsList[0];
       setColorHex(selectedColor.hex);
-      const rgb = hexToRGB(selectedColor.hex);
-      setColorRgb(rgb || { r: 255, g: 0, b: 0 });
-      setHexInput(selectedColor.hex);
-      setRgbInput({ r: String(rgb?.r ?? 255), g: String(rgb?.g ?? 0), b: String(rgb?.b ?? 0) });
     }
   }, [selectedDeviceId, devices, colorsList]);
-
-  // ------------------ HEX ↔ RGB Sync ------------------
-  useEffect(() => {
-    if (lastChangeSource.current === "hex") {
-      const rgb = hexToRGB(colorHex);
-      if (rgb) {
-        setColorRgb(rgb);
-        setRgbInput({ r: String(rgb.r), g: String(rgb.g), b: String(rgb.b) });
-
-        // Update color name
-        const name = closestColorName(colorHex, colorsList);
-        if (name) setEditValues(prev => ({ ...prev, color: name }));
-
-        // Only update hexInput if it is valid and differs
-        if (hexInput.toLowerCase() !== colorHex.toLowerCase()) {
-          setHexInput(colorHex);
-        }
-      }
-      lastChangeSource.current = null;
-    }
-  }, [colorHex, colorsList, hexInput]);
-    // TODO: Potential infinite loop: colorHex
-
-  useEffect(() => {
-    if (lastChangeSource.current === "rgb") {
-      const hex = rgbToHex(colorRgb.r, colorRgb.g, colorRgb.b);
-      if (hex.toLowerCase() !== colorHex.toLowerCase()) setColorHex(hex);
-
-      setRgbInput({ r: String(colorRgb.r), g: String(colorRgb.g), b: String(colorRgb.b) });
-
-      const name = closestColorName(hex, colorsList);
-      if (name) setEditValues(prev => ({ ...prev, color: name }));
-
-      // ✅ Update hexInput so the HEX input field shows the new value
-      if (hexInput.toLowerCase() !== hex.toLowerCase()) setHexInput(hex);
-
-      lastChangeSource.current = null;
-    }
-  }, [colorRgb, colorHex, colorsList, hexInput]);
-
-
-  // ------------------ RGB Input Handlers ------------------
-  const handleRgbChange = (ch: "r" | "g" | "b") => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 3);
-    setRgbInput(prev => ({ ...prev, [ch]: val }));
-    const num = Math.min(255, Math.max(0, Number(val || "0")));
-    lastChangeSource.current = "rgb";
-    setColorRgb(prev => ({ ...prev, [ch]: num }));
-  };
-
-  const handleRgbBlur = (ch: "r" | "g" | "b") => () => {
-    setRgbInput(prev => ({ ...prev, [ch]: prev[ch] === "" ? "0" : prev[ch] }));
-  };
 
   // ------------------ Actions ------------------
   const handleDeviceUpdate = async () => {
     try {
-      await axios.put("/api/users/dashboard", { id: selectedDeviceId, ...editValues });
+      const colorName = closestColorName(colorHex, colorsList);
+      await axios.put("/api/users/dashboard", { id: selectedDeviceId, ...editValues, color: colorName });
       alert("Device updated successfully");
 
       const updatedDevices = await axios.get<{ devices: Device[] }>("/api/users/dashboard");
@@ -260,7 +263,7 @@ export default function Dashboard() {
                       type="color"
                       ref={hiddenColorInput}
                       value={colorHex}
-                      onChange={e => { lastChangeSource.current = "hex"; setColorHex(e.target.value); }}
+                      onChange={handleHexChange}
                       className="absolute w-0 h-0 opacity-0 pointer-events-none"
                     />
                   </div>
@@ -275,7 +278,7 @@ export default function Dashboard() {
                       type="text"
                       value={rgbInput[ch]}
                       onChange={handleRgbChange(ch)}
-                      onBlur={handleRgbBlur(ch)}
+                      onBlur={handleRgbBlur}
                       className="w-1/3 p-2 border rounded-lg text-gray-700"
                       placeholder={ch.toUpperCase()}
                       inputMode="numeric"
@@ -290,14 +293,8 @@ export default function Dashboard() {
                   <input
                     type="text"
                     value={hexInput.replace(/^#/, "")}
-                    onChange={e => {
-                      const val = e.target.value.replace(/[^A-Fa-f0-9]/g, "");
-                      setHexInput("#" + val);  // update input as user types
-                      if (/^[A-Fa-f0-9]{6}$/.test(val)) {
-                        lastChangeSource.current = "hex";
-                        setColorHex("#" + val);  // only update colorHex when user finishes 6 chars
-                      }
-                    }}
+                    onChange={handleHexChange}
+                    onBlur={handleHexBlur}
                     className="w-full p-3 border rounded-r-lg text-gray-700 font-mono"
                     placeholder="RRGGBB"
                     maxLength={6}
