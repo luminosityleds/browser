@@ -9,6 +9,8 @@ import { colors } from "../utils/colorMap";
 import { hexToRGB } from "../utils/hexToRGB";
 import { rgbToHex } from "../utils/rgbToHex";
 import { useRouter } from "next/navigation";
+import { HexColorPicker } from "react-colorful";
+import { MdColorize } from "react-icons/md";
 
 interface RGB {
   r: number;
@@ -31,8 +33,9 @@ export default function DevicePage() {
 
   // ------------------ Color Picker State ------------------
   const [colorHex, setColorHex] = useState("#ff0000");
+  const [canvasPickerActive, setCanvasPickerActive] = useState(false);
 
-  // derive rgb from hex (no need to sync manually)
+  // derive rgb from hex
   const colorRgb: RGB = useMemo(
     () => hexToRGB(colorHex) ?? { r: 255, g: 0, b: 0 },
     [colorHex]
@@ -42,7 +45,6 @@ export default function DevicePage() {
   const [hexInput, setHexInput] = useState("#ff0000");
   const [rgbInput, setRgbInput] = useState({ r: "255", g: "0", b: "0" });
 
-  const hiddenColorInput = useRef<HTMLInputElement>(null);
   const colorsList = useMemo(() => colors, []);
 
   // keep inputs synced whenever base color changes
@@ -55,56 +57,68 @@ export default function DevicePage() {
     });
   }, [colorHex, colorRgb]);
 
-// ------------------ RGB Handlers ------------------
-const handleRgbChange =
-  (ch: "r" | "g" | "b") => (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ------------------ RGB Handlers ------------------
+  const handleRgbChange = (ch: "r" | "g" | "b") => (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 3);
     setRgbInput((prev) => {
       const updated = { ...prev, [ch]: val };
-
-      // try converting live if all values are valid numbers
       const r = Math.min(255, Math.max(0, Number(updated.r || "0")));
       const g = Math.min(255, Math.max(0, Number(updated.g || "0")));
       const b = Math.min(255, Math.max(0, Number(updated.b || "0")));
-
       if (updated.r !== "" && updated.g !== "" && updated.b !== "") {
         setColorHex(rgbToHex(r, g, b));
       }
-
       return updated;
     });
   };
 
-const handleRgbBlur = () => {
-  // ensure blanks get reset
-  const r = Math.min(255, Math.max(0, Number(rgbInput.r || "0")));
-  const g = Math.min(255, Math.max(0, Number(rgbInput.g || "0")));
-  const b = Math.min(255, Math.max(0, Number(rgbInput.b || "0")));
-  setRgbInput({ r: String(r), g: String(g), b: String(b) });
-  setColorHex(rgbToHex(r, g, b));
-};
+  const handleRgbBlur = () => {
+    const r = Math.min(255, Math.max(0, Number(rgbInput.r || "0")));
+    const g = Math.min(255, Math.max(0, Number(rgbInput.g || "0")));
+    const b = Math.min(255, Math.max(0, Number(rgbInput.b || "0")));
+    setRgbInput({ r: String(r), g: String(g), b: String(b) });
+    setColorHex(rgbToHex(r, g, b));
+  };
 
+  // ------------------ HEX Handlers ------------------
+  const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/[^A-Fa-f0-9]/g, "");
+    setHexInput("#" + val);
+    if (/^[A-Fa-f0-9]{6}$/.test(val)) {
+      setColorHex("#" + val);
+    }
+  };
 
-// ------------------ HEX Handlers ------------------
-const handleHexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const val = e.target.value.replace(/[^A-Fa-f0-9]/g, "");
-  setHexInput("#" + val);
+  const handleHexBlur = () => {
+    const val = hexInput.replace(/^#/, "");
+    if (/^[A-Fa-f0-9]{6}$/.test(val)) {
+      setColorHex("#" + val);
+    } else {
+      setHexInput(colorHex);
+    }
+  };
 
-  // if valid hex length, update color live
-  if (/^[A-Fa-f0-9]{6}$/.test(val)) {
-    setColorHex("#" + val);
-  }
-};
+  // ------------------ EyeDropper Handler ------------------
+  const handleEyeDropper = async () => {
+    if ("EyeDropper" in window) {
+      try {
+        const eyeDropper = new (window as any).EyeDropper();
+        const result = await eyeDropper.open();
+        setColorHex(result.sRGBHex);
+      } catch {
+        // canceled or failed
+      }
+    } else {
+      setCanvasPickerActive(true);
+    }
+  };
 
-const handleHexBlur = () => {
-  const val = hexInput.replace(/^#/, "");
-  if (/^[A-Fa-f0-9]{6}$/.test(val)) {
-    setColorHex("#" + val);
-  } else {
-    // revert invalid/partial input
-    setHexInput(colorHex);
-  }
-};
+  const handleCanvasPick = (pickedHex: string) => {
+    setColorHex(pickedHex);
+    setCanvasPickerActive(false);
+  };
 
   // ------------------ Register Device ------------------
   const handleRegisterDevice = async () => {
@@ -112,7 +126,6 @@ const handleHexBlur = () => {
       setError("⚠️ Please enter a device name before registering.");
       return;
     }
-
     try {
       setLoading(true);
       setError(null);
@@ -132,13 +145,10 @@ const handleHexBlur = () => {
       );
 
       setSuccess("Device registered successfully!");
-
-      // Reset form
       const defaultColor =
         colorsList.find((c) => c.name === "Ruby Red") || colorsList[0];
       setEditValues({ name: "", brightness: 100, powered: false });
       setColorHex(defaultColor.hex);
-
       setTimeout(() => router.push("/dashboard"), 1000);
     } catch (err: unknown) {
       if (axios.isAxiosError(err))
@@ -170,20 +180,14 @@ const handleHexBlur = () => {
             </h1>
 
             {error && (
-              <div className="text-red-600 bg-red-100 p-3 rounded-md mb-4">
-                {error}
-              </div>
+              <div className="text-red-600 bg-red-100 p-3 rounded-md mb-4">{error}</div>
             )}
             {success && (
-              <div className="text-green-600 bg-green-100 p-3 rounded-md mb-4">
-                {success}
-              </div>
+              <div className="text-green-600 bg-green-100 p-3 rounded-md mb-4">{success}</div>
             )}
 
             {/* Device Name */}
-            <label className="block text-gray-700 font-semibold mb-2">
-              Device Name
-            </label>
+            <label className="block text-gray-700 font-semibold mb-2">Device Name</label>
             <input
               type="text"
               placeholder="Enter device name"
@@ -196,35 +200,25 @@ const handleHexBlur = () => {
 
             {/* Color Wheel */}
             <div className="flex flex-col items-center mt-4 mb-6">
-              <label className="text-gray-700 font-semibold mb-2">
-                Color Wheel
-              </label>
-              <div
-                className="w-12 h-12 rounded-full cursor-pointer border-2 border-black"
-                style={{ backgroundColor: colorHex }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = `0 0 15px 5px ${colorHex}`
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget as HTMLDivElement).style.boxShadow =
-                    "0 0 0px 0px transparent"
-                }
-                onClick={() => hiddenColorInput.current?.click()}
-              >
-                <input
-                  type="color"
-                  ref={hiddenColorInput}
-                  value={colorHex}
-                  onChange={(e) => setColorHex(e.target.value)}
-                  className="absolute w-0 h-0 opacity-0 pointer-events-none"
-                />
-              </div>
+              <label className="text-gray-700 font-semibold mb-2">Color Wheel</label>
+              {!canvasPickerActive && (
+                <div className="flex flex-col items-center relative">
+                  <HexColorPicker color={colorHex} onChange={setColorHex} />
+
+                  {/* EyeDropper icon inside a circle */}
+                  <div
+                    onClick={handleEyeDropper}
+                    className="relative -bottom-4 w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center hover:bg-gray-400 cursor-pointer shadow-md transition"
+                    title="Pick Color"
+                  >
+                    <MdColorize className="text-gray-700 text-xl" />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* RGB Inputs */}
-            <label className="block text-gray-700 font-semibold mb-2">
-              RGB
-            </label>
+            <label className="block text-gray-700 font-semibold mb-2">RGB</label>
             <div className="flex space-x-2 mb-4">
               {(["r", "g", "b"] as const).map((ch) => (
                 <input
@@ -243,13 +237,9 @@ const handleHexBlur = () => {
             </div>
 
             {/* HEX Input */}
-            <label className="block text-gray-700 font-semibold mb-2">
-              HEX
-            </label>
+            <label className="block text-gray-700 font-semibold mb-2">HEX</label>
             <div className="flex items-center mb-4">
-              <span className="px-3 py-3 border border-r-0 rounded-l-lg bg-gray-100 text-gray-700 font-mono select-none">
-                #
-              </span>
+              <span className="px-3 py-3 border border-r-0 rounded-l-lg bg-gray-100 text-gray-700 font-mono select-none">#</span>
               <input
                 type="text"
                 value={hexInput.replace(/^#/, "")}
@@ -280,9 +270,7 @@ const handleHexBlur = () => {
             />
 
             {/* Powered Toggle */}
-            <label className="block text-gray-700 font-semibold mb-2 text-center">
-              Powered
-            </label>
+            <label className="block text-gray-700 font-semibold mb-2 text-center">Powered</label>
             <div className="flex justify-center mb-2">
               <div
                 onClick={() =>
@@ -305,9 +293,7 @@ const handleHexBlur = () => {
               onClick={handleRegisterDevice}
               disabled={loading}
               className={`w-full py-3 text-white font-bold rounded-lg transition ${
-                loading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
+                loading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
               }`}
             >
               {loading ? "Registering..." : "Register Device"}
@@ -315,6 +301,74 @@ const handleHexBlur = () => {
           </div>
         </div>
       </main>
+
+      {/* Canvas Picker Fallback */}
+      {canvasPickerActive && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <CanvasColorPicker onPick={handleCanvasPick} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Canvas-based fallback component
+function CanvasColorPicker({ onPick }: { onPick: (hex: string) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const width = 300; // fixed width
+    const height = 300; // fixed height
+    canvas.width = width;
+    canvas.height = height;
+
+    // Fill with a horizontal hue gradient (0 → 360 degrees)
+    const hueGradient = ctx.createLinearGradient(0, 0, width, 0);
+    for (let i = 0; i <= 360; i += 10) {
+      hueGradient.addColorStop(i / 360, `hsl(${i}, 100%, 50%)`);
+    }
+    ctx.fillStyle = hueGradient;
+    ctx.fillRect(0, 0, width, height);
+
+    // Overlay vertical gradient for brightness (top: white, middle: transparent, bottom: black)
+    const brightnessGradient = ctx.createLinearGradient(0, 0, 0, height);
+    brightnessGradient.addColorStop(0, "rgba(255,255,255,1)");
+    brightnessGradient.addColorStop(0.5, "rgba(255,255,255,0)");
+    brightnessGradient.addColorStop(0.5, "rgba(0,0,0,0)");
+    brightnessGradient.addColorStop(1, "rgba(0,0,0,1)");
+    ctx.fillStyle = brightnessGradient;
+    ctx.fillRect(0, 0, width, height);
+  }, []);
+
+  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
+    const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
+
+    const pixel = ctx.getImageData(x, y, 1, 1).data;
+    const hex = rgbToHex(pixel[0], pixel[1], pixel[2]);
+    onPick(hex);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <canvas
+        ref={canvasRef}
+        width={300}
+        height={300}
+        onClick={handleClick}
+        className="cursor-crosshair rounded-lg shadow-lg"
+      />
     </div>
   );
 }

@@ -263,7 +263,7 @@ export default function Dashboard() {
                       type="color"
                       ref={hiddenColorInput}
                       value={colorHex}
-                      onChange={handleHexChange}
+                      onChange={(e) => setColorHex(e.currentTarget.value)}
                       className="absolute w-0 h-0 opacity-0 pointer-events-none"
                     />
                   </div>
