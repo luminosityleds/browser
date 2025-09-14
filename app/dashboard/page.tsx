@@ -9,6 +9,8 @@ import { colors } from "../utils/colorMap";
 import { hexToRGB } from "../utils/hexToRGB";
 import { rgbToHex } from "../utils/rgbToHex";
 import { useRouter } from "next/navigation";
+import { HexColorPicker } from "react-colorful";
+import { MdColorize } from "react-icons/md";
 
 // ------------------ Types ------------------
 interface RGB {
@@ -48,8 +50,9 @@ export default function Dashboard() {
 
   // ------------------ Color Picker State ------------------
   const [colorHex, setColorHex] = useState("#ff0000");
+  const [canvasPickerActive, setCanvasPickerActive] = useState(false);
 
-  // derive rgb from hex (no need to sync manually)
+  // derive rgb from hex
   const colorRgb: RGB = useMemo(
     () => hexToRGB(colorHex) ?? { r: 255, g: 0, b: 0 },
     [colorHex]
@@ -117,6 +120,26 @@ export default function Dashboard() {
     }
   };
 
+  // ------------------ EyeDropper Handler ------------------
+  const handleEyeDropper = async () => {
+    if ("EyeDropper" in window) {
+      try {
+        const eyeDropper = new (window as any).EyeDropper();
+        const result = await eyeDropper.open();
+        setColorHex(result.sRGBHex);
+      } catch {
+        // canceled or failed
+      }
+    } else {
+      setCanvasPickerActive(true);
+    }
+  };
+
+  const handleCanvasPick = (pickedHex: string) => {
+    setColorHex(pickedHex);
+    setCanvasPickerActive(false);
+  };
+
   // ------------------ Fetch Data ------------------
   useEffect(() => {
     const fetchUserData = async () => {
@@ -141,7 +164,10 @@ export default function Dashboard() {
 
   // ------------------ Selected Device ------------------
   useEffect(() => {
-    if (!selectedDeviceId) return;
+    if (!selectedDeviceId) {
+      setSelectedDevice(null);   // clear selection
+      return;
+    }
     const device = devices.find(d => d._id === selectedDeviceId) || null;
     setSelectedDevice(device);
 
@@ -252,21 +278,20 @@ export default function Dashboard() {
                 {/* Color Wheel */}
                 <div className="flex flex-col items-center mt-4 mb-6">
                   <label className="text-gray-700 font-semibold mb-2">Color Wheel</label>
-                  <div
-                    className="w-12 h-12 rounded-full cursor-pointer border-2 border-black"
-                    style={{ backgroundColor: colorHex }}
-                    onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.boxShadow = `0 0 15px 5px ${colorHex}`}
-                    onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 0px 0px transparent"}
-                    onClick={() => hiddenColorInput.current?.click()}
-                  >
-                    <input
-                      type="color"
-                      ref={hiddenColorInput}
-                      value={colorHex}
-                      onChange={(e) => setColorHex(e.currentTarget.value)}
-                      className="absolute w-0 h-0 opacity-0 pointer-events-none"
-                    />
-                  </div>
+                  {!canvasPickerActive && (
+                    <div className="flex flex-col items-center relative">
+                      <HexColorPicker color={colorHex} onChange={setColorHex} />
+
+                      {/* EyeDropper icon inside a circle */}
+                      <div
+                        onClick={handleEyeDropper}
+                        className="relative -bottom-4 w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center hover:bg-gray-400 cursor-pointer shadow-md transition"
+                        title="Pick Color"
+                      >
+                        <MdColorize className="text-gray-700 text-xl" />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* RGB Inputs */}
@@ -334,6 +359,75 @@ export default function Dashboard() {
           <button onClick={registerDevice} className="w-full py-2 bg-green-600 text-white font-semibold rounded hover:bg-green-700">Register New Device</button>
         </div>
       </main>
+
+        {/* Canvas Picker Fallback */}
+        {canvasPickerActive && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <CanvasColorPicker onPick={handleCanvasPick} />
+        </div>
+      )}
     </div>
   );
 }
+
+// Canvas-based fallback component
+function CanvasColorPicker({ onPick }: { onPick: (hex: string) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const width = 300; // fixed width
+    const height = 300; // fixed height
+    canvas.width = width;
+    canvas.height = height;
+
+    // Fill with a horizontal hue gradient (0 → 360 degrees)
+    const hueGradient = ctx.createLinearGradient(0, 0, width, 0);
+    for (let i = 0; i <= 360; i += 10) {
+      hueGradient.addColorStop(i / 360, `hsl(${i}, 100%, 50%)`);
+    }
+    ctx.fillStyle = hueGradient;
+    ctx.fillRect(0, 0, width, height);
+
+    // Overlay vertical gradient for brightness (top: white, middle: transparent, bottom: black)
+    const brightnessGradient = ctx.createLinearGradient(0, 0, 0, height);
+    brightnessGradient.addColorStop(0, "rgba(255,255,255,1)");
+    brightnessGradient.addColorStop(0.5, "rgba(255,255,255,0)");
+    brightnessGradient.addColorStop(0.5, "rgba(0,0,0,0)");
+    brightnessGradient.addColorStop(1, "rgba(0,0,0,1)");
+    ctx.fillStyle = brightnessGradient;
+    ctx.fillRect(0, 0, width, height);
+  }, []);
+
+  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
+    const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
+
+    const pixel = ctx.getImageData(x, y, 1, 1).data;
+    const hex = rgbToHex(pixel[0], pixel[1], pixel[2]);
+    onPick(hex);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <canvas
+        ref={canvasRef}
+        width={300}
+        height={300}
+        onClick={handleClick}
+        className="cursor-crosshair rounded-lg shadow-lg"
+      />
+    </div>
+  );
+}
+
