@@ -31,21 +31,24 @@ export default function DevicePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // ------------------ Color Picker State ------------------
-  const [colorHex, setColorHex] = useState("#ff0000");
-  const [canvasPickerActive, setCanvasPickerActive] = useState(false);
+// ------------------ Color Picker State ------------------
+const [colorHex, setColorHex] = useState("#ff0000");
+const [canvasPickerActive, setCanvasPickerActive] = useState(false);
 
-  // derive rgb from hex
-  const colorRgb: RGB = useMemo(
-    () => hexToRGB(colorHex) ?? { r: 255, g: 0, b: 0 },
-    [colorHex]
-  );
+// derive rgb from hex
+const colorRgb: RGB = useMemo(
+  () => hexToRGB(colorHex) ?? { r: 255, g: 0, b: 0 },
+  [colorHex]
+);
 
-  // controlled inputs
+const colorsList = useMemo(() => colors, []);
+
+  // ------------------ Controlled Inputs ------------------
   const [hexInput, setHexInput] = useState("#ff0000");
   const [rgbInput, setRgbInput] = useState({ r: "255", g: "0", b: "0" });
-
-  const colorsList = useMemo(() => colors, []);
+  const [colorNameInput, setColorNameInput] = useState(
+    closestColorName(colorHex, colorsList)
+  );
 
   // keep inputs synced whenever base color changes
   useEffect(() => {
@@ -55,7 +58,32 @@ export default function DevicePage() {
       g: String(colorRgb.g),
       b: String(colorRgb.b),
     });
-  }, [colorHex, colorRgb]);
+    setColorNameInput(closestColorName(colorHex, colorsList));
+  }, [colorHex, colorRgb, colorsList]);
+
+  // ------------------ Color Name Handlers ------------------
+  const handleColorNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setColorNameInput(e.target.value);
+  };
+
+  const handleColorNameBlur = () => {
+    const match = colorsList.find(
+      (c) => c.name.toLowerCase() === colorNameInput.toLowerCase()
+    );
+
+    if (match) {
+      setColorHex(match.hex);
+      setColorNameInput(match.name); // normalize case
+    } else {
+      // fallback to closest
+      const closest = closestColorName(colorNameInput, colorsList);
+      const closestColor = colorsList.find((c) => c.name === closest);
+      if (closestColor) {
+        setColorHex(closestColor.hex);
+        setColorNameInput(closestColor.name);
+      }
+    }
+  };
 
   // ------------------ RGB Handlers ------------------
   const handleRgbChange = (ch: "r" | "g" | "b") => (
@@ -200,7 +228,7 @@ export default function DevicePage() {
 
             {/* Color Wheel */}
             <div className="flex flex-col items-center mt-4 mb-6">
-              <label className="text-gray-700 font-semibold mb-2">Color Wheel</label>
+              <label className="text-gray-700 font-semibold mb-2">Color Grid</label>
               {!canvasPickerActive && (
                 <div className="flex flex-col items-center relative">
                   <HexColorPicker color={colorHex} onChange={setColorHex} />
@@ -216,6 +244,23 @@ export default function DevicePage() {
                 </div>
               )}
             </div>
+
+            {/* Color Name Input */}
+            <label className="block text-gray-700 font-semibold mb-2">Color Name</label>
+            <input
+              type="text"
+              placeholder="e.g. Sky Blue"
+              value={colorNameInput}
+              onChange={handleColorNameChange}
+              onBlur={handleColorNameBlur}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault(); // prevent form submission if inside a <form>
+                  handleColorNameBlur();
+                }
+              }}
+              className="w-full p-3 border rounded-lg text-gray-700 mb-4"
+            />  
 
             {/* RGB Inputs */}
             <label className="block text-gray-700 font-semibold mb-2">RGB</label>
