@@ -19,14 +19,25 @@ export default function SignUp() {
     router.push(`/${route}`);
   };
 
+  const validateEmail = (email: string) => {
+    // Basic email regex: checks for text@text.text format
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+  
   const onSignup = async () => {
     setError(""); // Clear previous errors
+  
+    if (!validateEmail(user.email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+  
     try {
       await axios.post("/api/users/signup", user);
-      setSuccess(true); // Show success popup on successful signup
+      setSuccess(true);
       setTimeout(() => {
-        setSuccess(false); // Hide the popup after 3 seconds
-        router.push("/login"); // Redirect to login page
+        setSuccess(false);
+        router.push("/login");
       }, 3000);
     } catch (error: any) {
       if (error.response?.status === 400) {
@@ -38,6 +49,7 @@ export default function SignUp() {
       }
     }
   };
+  
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-8 bg-gray-800">
