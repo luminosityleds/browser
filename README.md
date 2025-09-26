@@ -1,3 +1,6 @@
+# Browser
+[![codecov](https://codecov.io/gh/luminosityleds/browser/graph/badge.svg?token=nbq2Y8WP3U)](https://codecov.io/gh/luminosityleds/browser)
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
