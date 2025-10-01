@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from "mongoose"
 import { DeviceInterface } from "./deviceSchema"
 
 export interface AccountInterface extends Document {
+    _id: mongoose.Types.ObjectId;
     name : string;
     email : string;
     password : string;
