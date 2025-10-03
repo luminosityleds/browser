@@ -8,4 +8,10 @@ module.exports = {
         '^.+\\.tsx?$': 'ts-jest',
     },
     moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
+
+    moduleNameMapper: {
+        '^@/(.*)$': '<rootDir>/$1', // Map @/ to the project root
+      },
+      
+      setupFilesAfterEnv: ["<rootDir>/tests/setup.ts"],
 };
