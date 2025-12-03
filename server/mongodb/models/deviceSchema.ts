@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from "mongoose";
 
 export interface DeviceInterface extends Document {
+    _id: mongoose.Types.ObjectId;
     name: string;
     uuid: string;
     powered?: boolean;
@@ -26,7 +27,7 @@ const DeviceSchema: Schema = new Schema<DeviceInterface>({
     colorTimestamp: { type: Date },
     brightness: { type: Number },
     brightnessTimestamp: { type: Date },
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true },
     lastUpdated: { type: Date, required: true, default: Date.now }
 });
 
