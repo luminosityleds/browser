@@ -25,6 +25,7 @@ interface Device {
   color: string; // Named color
   brightness: number;
   powered: boolean;
+  connected?: boolean; // Connection status
 }
 
 interface User {
@@ -40,7 +41,7 @@ export default function Dashboard() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-  const [editValues, setEditValues] = useState<Omit<Device, "_id">>({
+  const [editValues, setEditValues] = useState<Omit<Device, "_id" | "connected">>({
     name: "",
     color: colors[0].name,
     brightness: 100,
@@ -293,6 +294,14 @@ const colorsList = useMemo(() => colors, []);
 
             {selectedDevice && (
               <div className="mt-6 bg-blue-100 p-4 text-left rounded-lg shadow">
+                {/* Connection Status */}
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-300">
+                  <div className={`w-3 h-3 rounded-full ${selectedDevice.connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <span className="text-sm font-semibold">
+                    {selectedDevice.connected ? 'Connected' : 'Disconnected'}
+                  </span>
+                </div>
+
                 {/* Device Name */}
                 <label className="block mb-2">Name</label>
                 <input

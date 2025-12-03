@@ -4,6 +4,11 @@ jest.mock("@/dbConfig", () => ({
   disconnect: async () => {},   // no-op
 }));
 
+// ✅ Mock sendEmail to prevent actual email sending in tests
+jest.mock("@/app/helpers/mailer", () => ({
+  sendEmail: jest.fn().mockResolvedValue(true),
+}));
+
 import User from "@/server/mongodb/models/accountSchema";
 import bcrypt from "bcryptjs";
 import { POST as deviceHandler } from "@/app/api/users/devices/route";
