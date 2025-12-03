@@ -57,12 +57,6 @@ describe("Account Service API Handlers (App Router)", () => {
     const res: any = await loginHandler(req);
     const json = await res.json();
 
-    // Debug: log error if status is not 200
-    if (res.status !== 200) {
-      console.error("Login failed with status:", res.status);
-      console.error("Response body:", json);
-    }
-
     expect(res.status).toBe(200);
     expect(json.success).toBe(true);
   });

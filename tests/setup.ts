@@ -11,6 +11,9 @@ beforeAll(async () => {
   // Set test DB URL
   process.env.MONGO_DB_URL = mongo.getUri();
 
+  // Set TOKEN_SECRET for JWT signing in tests
+  process.env.TOKEN_SECRET = "test-secret-key-for-jwt-signing";
+
   // Connect mongoose directly
   await mongoose.connect(process.env.MONGO_DB_URL);
   console.log("✅ Connected to in-memory MongoDB");
