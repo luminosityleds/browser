@@ -23,7 +23,7 @@ export async function DELETE(req: Request) {
     }
 
     // Respond with a success message
-    return NextResponse.json({ message: "Account successfully deleted" }, { status: 200 });
+    return NextResponse.json({ success: true, message: "Account successfully deleted" }, { status: 200 });
   } catch (error) {
     console.error("Error deleting account:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
